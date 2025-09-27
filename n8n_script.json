@@ -1,0 +1,258 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "modelId": {
+                    "__rl": true,
+                    "value": "gpt-5",
+                    "mode": "list",
+                    "cachedResultName": "GPT-5"
+                },
+                "messages": {
+                    "values": [
+                        {
+                            "content": "=You are a world-class market research and SEO analyst. Your task is to deconstruct a seed keyword into its fundamental components to drive a keyword research strategy.\n\nDeconstruct the user's seed keyword: \"{{ $json.seed_keyword }}\"\nAnalyze the keyword and return a JSON object with the following structure:\n{\n  \"core_concepts\": [\n    \"A list of 3-5 primary underlying themes or topics. What is the user REALLY interested in?\"\n  ],\n  \"user_personas\": [\n    \"A list of 3-5 distinct user types who would search for this term. Who are they?\"\n  ],\n  \"user_motivations\": [\n    \"A list of 3-5 key drivers or goals behind the search. What do they want to achieve?\"\n  ]\n}\n\nDo not include any text, explanation, or markdown formatting before or after the JSON object."
+                        }
+                    ]
+                },
+                "jsonOutput": true,
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.openAi",
+            "typeVersion": 1.8,
+            "position": [
+                576,
+                -48
+            ],
+            "id": "d99151c7-f661-4210-8b05-ed64057bb6fd",
+            "name": "Message a model",
+            "credentials": {
+                "openAiApi": {
+                    "id": "9u6AFR2aemg4k4yG",
+                    "name": "OpenAi account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "modelId": {
+                    "__rl": true,
+                    "value": "gpt-5",
+                    "mode": "list",
+                    "cachedResultName": "GPT-5"
+                },
+                "messages": {
+                    "values": [
+                        {
+                            "content": "=You are a world-class SEO strategist and market analyst with a deep understanding of user search intent. Your task is to generate a highly diverse and comprehensive list of approximately 100 keyword ideas based on the provided market analysis. The goal is to uncover a wide range of strategic opportunities.\n\nMarket Analysis:\n{{ JSON.stringify($input.item.json) }}\n\nYou must adhere to the following strict rules for generation:\n\n*Rule 1: Diversity of User Intent\nGenerate keywords that cover all four types of search intent. Include a mix of:\n- *Informational: Questions starting with \"how to\", \"what is\", \"guide\", \"benefits of\".\n- Commercial: Keywords including \"best\", \"review\", \"comparison\", \"vs\", \"alternative to\".\n- Transactional: Keywords suggesting action, such as \"programs\", \"agencies\", \"cost\", \"apply for\", \"scholarships for\".\n- Navigational: Keywords for well-known brands or providers in this space (e.g., \"The Intern Group review\", \"AIESEC application\").\n\n*Rule 2: Variety of Keyword Formats\nYour list must include a mix of the following formats:\n- *Long-tail Questions: Full questions a user would type.\n- Problem-Based Keywords: Searches that focus on a user's pain point (e.g., \"internship visa rejected\", \"unpaid internship worth it\").\n- Year-Specific Keywords: Include the current and next year (e.g., \"paid summer internships abroad 2025\").\n- Location-Specific Keywords: Target specific countries or cities known for internships (e.g., \"internships in London for US students\").\n\n*Rule 3: Strict De-duplication\nYou MUST ensure the list is free of semantic duplicates. For example, \"internships abroad for students\" and \"student internships abroad\" are duplicates. Each keyword must represent a unique search idea. Prioritize variety over volume.\n\nRule 4: Output Formatting*\n- Output ONLY the raw list of keywords.\n- Each keyword must be on a new line.\n- Do not use numbers, bullet points, markdown (- or *), or any introductory/concluding text.\n\nGenerate the list now."
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.openAi",
+            "typeVersion": 1.8,
+            "position": [
+                928,
+                -48
+            ],
+            "id": "bfaa19bd-530f-4856-84e6-2ebf06b0ad46",
+            "name": "Message a model1",
+            "credentials": {
+                "openAiApi": {
+                    "id": "9u6AFR2aemg4k4yG",
+                    "name": "OpenAi account"
+                }
+            }
+        },
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                128,
+                -48
+            ],
+            "id": "819cac46-d159-491e-b7d8-7bf0f67d3783",
+            "name": "start"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_ideas/live",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpBasicAuth",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "=[\n  {\n    \"keywords\": [\n      \"{{ $json.keyword }}\"\n    ],\n    \"location_name\": \"United States\",\n    \"language_name\": \"English\"\n  }\n]",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                480,
+                240
+            ],
+            "id": "a47655b9-a1e5-480d-a952-49ff9bbfa194",
+            "name": "API Pull",
+            "executeOnce": false,
+            "retryOnFail": true,
+            "waitBetweenTries": 3000,
+            "credentials": {
+                "httpBasicAuth": {
+                    "id": "iaTpxy3K55tjKG7Z",
+                    "name": "Unnamed credential"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "mode": "runOnceForEachItem",
+                "jsCode": "// This is the final, correct parser for the /keyword_ideas/live endpoint.\n\n// Get the successful API response.\nconst apiResponse = $input.item.json;\n\n// Define the clean object we want to create.\nconst cleanOutput = {\n    keyword: \"No ideas found\",\n    search_volume: 0,\n    keyword_difficulty: 1.0 // Default to max difficulty\n};\n\n// Safely navigate to the INNER list of keyword items returned by the API.\nconst discoveredItems = apiResponse?.tasks?.[0]?.result?.[0]?.items;\n\n// If the API returned a list of new ideas, process the first one.\nif (discoveredItems && discoveredItems.length > 0) {\n    const firstIdea = discoveredItems[0];\n    \n    // We will use the keyword from the new idea.\n    cleanOutput.keyword = firstIdea.keyword;\n\n    // Safely get the search volume for the new idea.\n    if (firstIdea.keyword_info) {\n        cleanOutput.search_volume = firstIdea.keyword_info.search_volume || 0;\n    }\n\n    // This is our robust logic to find the difficulty score from multiple possible locations.\n    let foundDifficulty = null;\n    if (firstIdea.keyword_info?.competition !== null && firstIdea.keyword_info?.competition !== undefined) {\n        foundDifficulty = firstIdea.keyword_info.competition;\n    } else if (firstIdea.keyword_properties?.keyword_difficulty !== null && firstIdea.keyword_properties?.keyword_difficulty !== undefined) {\n        foundDifficulty = firstIdea.keyword_properties.keyword_difficulty / 100.0; // Normalize\n    } else if (firstIdea.keyword_info?.competition_level) {\n        const level = firstIdea.keyword_info.competition_level;\n        if (level === 'LOW') foundDifficulty = 0.3;\n        else if (level === 'MEDIUM') foundDifficulty = 0.6;\n        else if (level === 'HIGH') foundDifficulty = 0.9;\n    }\n    \n    if (foundDifficulty !== null) {\n        cleanOutput.keyword_difficulty = foundDifficulty;\n    }\n}\n\n// Return the final, clean checkpoint object.\nreturn cleanOutput;"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                768,
+                240
+            ],
+            "id": "c537b39b-d2a4-417a-87cb-9c1aee9135c6",
+            "name": "Data Checkpoint"
+        },
+        {
+            "parameters": {
+                "mode": "runOnceForEachItem",
+                "jsCode": "\nconst items = $input.all();\n\nitems.forEach(item => {\n  const volume = item.json.search_volume;\n  const difficulty = item.json.keyword_difficulty * 100;\n  \n  item.json.opportunityScore = (volume * volume) / (difficulty + 1);\n});\n\nitems.sort((a, b) => b.json.opportunityScore - a.json.opportunityScore);\n\nreturn items.slice(0, 50);"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1008,
+                240
+            ],
+            "id": "68f08db0-a3df-4f3b-bf70-f846b39c1d18",
+            "name": "Result"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "ed318399-7485-4aa2-b2cb-1ee0c52b463a",
+                            "name": "seed_keyword",
+                            "value": "Global internship",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                368,
+                -48
+            ],
+            "id": "d89dd04a-14cf-44de-bd66-5151bf395f6b",
+            "name": "Fields"
+        },
+        {
+            "parameters": {
+                "jsCode": "\nconst keywordString = $input.item.json.message.content;\n\nconst keywordsArray = keywordString.split('\\n');\n\nreturn keywordsArray.map(keyword => {\n  const trimmedKeyword = keyword.trim();\n\n  if (trimmedKeyword) {\n    return {\n      json: {\n        \"keyword\": trimmedKeyword\n      }\n    };\n  }\n}).filter(Boolean); "
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                160,
+                240
+            ],
+            "id": "5c2ce143-45f9-4a8b-a294-7319877a0a5c",
+            "name": "Parsing Code"
+        }
+    ],
+    "connections": {
+        "Message a model": {
+            "main": [
+                [
+                    {
+                        "node": "Message a model1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Message a model1": {
+            "main": [
+                [
+                    {
+                        "node": "Parsing Code",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "start": {
+            "main": [
+                [
+                    {
+                        "node": "Fields",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "API Pull": {
+            "main": [
+                [
+                    {
+                        "node": "Data Checkpoint",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Data Checkpoint": {
+            "main": [
+                [
+                    {
+                        "node": "Result",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fields": {
+            "main": [
+                [
+                    {
+                        "node": "Message a model",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parsing Code": {
+            "main": [
+                [
+                    {
+                        "node": "API Pull",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "d44c4488cf5c698cc65606a6ff6c232f0f967ba6cda6b9b49a2bbe4cb356638b"
+    }
+}
